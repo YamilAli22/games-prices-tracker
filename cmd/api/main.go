@@ -26,6 +26,13 @@ var IS_DEV bool
 
 func init() {
 	_ = godotenv.Load()
+	
+	for _, k := range []string{"DATABASE_URL", "JWT_SECRET_KEY"} {
+       if os.Getenv(k) == "" {
+           log.Fatalf("falta la variable de entorno %s", k)
+		}
+	}
+	
 	PORT = os.Getenv("PORT")
 	IS_DEV = os.Getenv("ENV") == "dev"
 }

@@ -25,7 +25,7 @@ func NewWorker(db *pgxpool.Pool) *Worker {
 }
 
 func (w *Worker) StartWorker(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second) // change later
+	ticker := time.NewTicker(time.Hour) // change later
 	defer ticker.Stop()
 	
 	log.Println("Worker started!!")
@@ -35,7 +35,7 @@ func (w *Worker) StartWorker(ctx context.Context) {
 		case <-ticker.C:
 			log.Println("Ticker - worker checking prices ... ")
 			// check the prices in steam and then compare to the games in db 
-		if err := w.CheckAllPrices(ctx); err != nil {
+			if err := w.CheckAllPrices(ctx); err != nil {
 				log.Printf("Error en en checkAllPrices: %v", err)
 			} 
 		case <-ctx.Done():
