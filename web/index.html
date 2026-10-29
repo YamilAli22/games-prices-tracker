@@ -77,11 +77,6 @@ summary{cursor:pointer;color:var(--muted);font-size:.9rem}
     <button id="logout" hidden>Cerrar sesión</button>
   </header>
 
-  <details>
-    <summary>Conexión con el servidor</summary>
-    <div class="row" style="margin-top:8px"><input id="api" placeholder="http://localhost:8080"></div>
-  </details>
-
   <!-- AUTH -->
   <section id="auth" class="panel" hidden>
     <h2 id="authTitle">Iniciar sesión</h2>
@@ -127,8 +122,8 @@ const store = {
 };
 let token = store.get('ct_token');
 let mode = 'login';
-$('#api').value = store.get('ct_api') || 'http://localhost:8080';
-$('#api').addEventListener('change', e => store.set('ct_api', e.target.value.trim()));
+// Para producción: definí window.API_BASE = '' (mismo origen) o la URL de tu API antes de este script.
+const API_BASE = (window.API_BASE ?? 'http://localhost:8080').replace(/\/$/,'');
 
 function toast(msg, err){
   const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : '';
@@ -137,12 +132,12 @@ function toast(msg, err){
 const money = n => (n==null||isNaN(n)) ? '—' : '$' + Number(n).toFixed(2);
 
 async function api(path, opts = {}){
-  const base = $('#api').value.trim().replace(/\/$/,'');
+  const base = API_BASE;
   const headers = {'Content-Type':'application/json'};
   if(token) headers.Authorization = 'Bearer ' + token;
   let res;
   try{ res = await fetch(base + path, {...opts, headers}); }
-  catch(e){ throw new Error('No se pudo conectar con ' + base + '. ¿Está corriendo el servidor y tiene CORS habilitado?'); }
+  catch(e){ throw new Error('No se pudo conectar con el servidor. Probá de nuevo en unos segundos.'); }
   const text = await res.text();
   let data = null; try{ data = text ? JSON.parse(text) : null }catch(e){ data = text }
   if(res.status === 401 && token){ logout(); throw new Error('Tu sesión expiró. Iniciá sesión de nuevo.'); }
@@ -194,7 +189,7 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
   ['search','mine','notes'].forEach(t => $('#tab-'+t).hidden = t !== b.dataset.tab);
   if(b.dataset.tab === 'mine') loadMine();
-  if(b.dataset.tab === 'notes') loadNotes();
+  if(b.dataset.tab === 'notes') loadNotes(true);
 });
 
 /* ---------- search ---------- */
@@ -238,7 +233,7 @@ async function loadMine(){
     list.forEach(g => {
       const hit = g.target_price != null && g.current_price != null && g.current_price <= g.target_price;
       const el = document.createElement('div'); el.className = 'item';
-      el.innerHTML = `<div class="thumb"></div><div><div class="name"></div>
+      el.innerHTML = `<img alt="" src="https://cdn.akamai.steamstatic.com/steam/apps/${g.steam_app_id}/header.jpg" onerror="this.style.visibility='hidden'"><div><div class="name"></div>
         <div class="price">Ahora: <b>${g.is_free?'Gratis':money(g.current_price)}</b> · Objetivo: <b>${money(g.target_price)}</b> ${hit?'<span class="drop">¡objetivo alcanzado!</span>':''}</div></div>
         <div class="actions"><input type="number" min="0" step="0.01" value="${g.target_price??''}" aria-label="Nuevo precio objetivo"><button>Guardar</button><button class="danger">Quitar</button></div>`;
       el.querySelector('.name').textContent = g.name;
@@ -260,12 +255,13 @@ async function loadMine(){
 }
 
 /* ---------- notifications ---------- */
-async function loadNotes(){
+async function loadNotes(markRead){
   const box = $('#notes');
   try{
     const list = await api('/notifications');
     const unread = (list||[]).filter(n => !n.read).length;
     $('#nbadge').hidden = !unread; $('#nbadge').textContent = unread;
+    if(markRead && unread){ $('#nbadge').hidden = true; api('/notifications/read', {method:'PATCH'}).catch(()=>{}); }
     if(!list || !list.length){ box.innerHTML = '<div class="empty">No tenés avisos todavía. Te avisamos cuando un juego llegue a tu precio objetivo.</div>'; return; }
     box.innerHTML = '';
     list.forEach(n => {

@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -25,10 +25,7 @@ var PORT string
 var IS_DEV bool
 
 func init() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalln("Couldn't load .env file!!")
-	}
+	_ = godotenv.Load()
 	PORT = os.Getenv("PORT")
 	IS_DEV = os.Getenv("ENV") == "dev"
 }
@@ -55,9 +52,6 @@ func newServer(db *pgxpool.Pool, w *worker.Worker) *Server {
 	usersHandler := &users.Handler{Pool: server.DB}
 	server.Router.Post("/users", usersHandler.HandleCreateUser)
 	server.Router.Post("/users/login", usersHandler.HandleUserLogin)
-	server.Router.Get("/users", usersHandler.HandleGetUsers)
-	server.Router.Get("/user/search", usersHandler.HandleGetUserByEmail) // now only searchs by email, but it can be generalized and add more filters
-	server.Router.Get("/user/{id}", usersHandler.HandleGetUserByID)
 	// GAMES ROUTES AND NOTI ROUTES
 	gamesHandler := &games.GameHandler{Pool: server.DB}
 	notiHandler := &notifications.NotiHandler{Pool: server.DB}
@@ -70,7 +64,7 @@ func newServer(db *pgxpool.Pool, w *worker.Worker) *Server {
 		r.Delete("/games/{steamAppID}", gamesHandler.HandleDeleteGame)
 		// notification route
 		r.Get("/notifications", notiHandler.HandleGetNotification)
-		r.Patch("/notification/read", notiHandler.HandleMarkRead)
+		r.Patch("/notifications/read", notiHandler.HandleMarkRead)
 	})
 
 	debugHandler := &debug.Handler{Worker: w}
@@ -102,6 +96,8 @@ func main() {
 	
 	server := newServer(conn, priceWorker)
 	
-	fmt.Println("server running on port", PORT)
-	log.Fatalln(http.ListenAndServe(PORT, server.Router))
+	addr := ":" + strings.TrimPrefix(PORT, ":")
+	if PORT == "" { addr = ":8080" }
+	log.Println("server running on", addr)
+	log.Fatalln(http.ListenAndServe(addr, server.Router))
 }
