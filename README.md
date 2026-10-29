@@ -104,4 +104,4 @@ Con `ENV=dev` existe además `POST /debug/check-prices`, que dispara un chequeo 
 - Recomendaciones personalizadas.
 
 ## Aviso sobre IA
-- No se utilizaron agentes de IA para realizar este proyecto. SI se utilizo el LLM de Claude para debug, explicar conceptos y sugerir correcciones/mejorar y generar documentación.
+- No se utilizaron agentes de IA para realizar este proyecto. SI se utilizo el LLM de Claude para debug, explicar conceptos, sugerir correcciones/mejorar y generar el frontend.
