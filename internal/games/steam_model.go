@@ -29,12 +29,13 @@ type SteamAppDetails struct {
 }
 
 type SteamAppData struct {
-    Name string `json:"name"`
+	ID	int `json:"steam_appid"`
+	Name string `json:"name"`
     IsFree bool `json:"is_free"`
     PriceOverview *SteamPrice `json:"price_overview"`
 }
 
 type SteamPrice struct {
-    Final int `json:"final"`
+    Final float64 `json:"final"`
     Currency string `json:"currency"`
 }

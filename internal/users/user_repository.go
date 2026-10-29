@@ -1,16 +1,18 @@
 package users
 
-/* 
+/*
 repository.go is responsible for managing database operations, implementing necessary operations, and interacting with the database.
 */
 
 import (
-	"github.com/jackc/pgx/v5"
-	"github.com/google/uuid"
 	"context"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func CreateUser(ctx context.Context, conn *pgx.Conn, user *UserRequestBody) (UserResponse, error) {
+func CreateUser(ctx context.Context, conn *pgxpool.Pool, user *UserRequestBody) (UserResponse, error) {
 	var id uuid.UUID
 	var email string
 	query := `INSERT INTO users (email, hash) VALUES ($1, $2) RETURNING id, email`
@@ -30,7 +32,7 @@ func CreateUser(ctx context.Context, conn *pgx.Conn, user *UserRequestBody) (Use
 
 
 // esta funcion devuelve los usuarios traidos de la db en un formato json 
-func GetUsers(ctx context.Context, conn *pgx.Conn) ([]*UserResponse, error) {
+func GetUsers(ctx context.Context, conn *pgxpool.Pool) ([]*UserResponse, error) {
     rows, _ := conn.Query(ctx, "SELECT id, email FROM users")
     users, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*UserResponse, error) {
         user := new(UserResponse)
@@ -41,7 +43,7 @@ func GetUsers(ctx context.Context, conn *pgx.Conn) ([]*UserResponse, error) {
 }
 
 // GetUserByEmail returns User (internal use, contains hash, this function is used by the login handler)
-func GetUserByEmailWithHash(ctx context.Context, conn *pgx.Conn, email string) (User, error) {
+func GetUserByEmailWithHash(ctx context.Context, conn *pgxpool.Pool, email string) (User, error) {
     var user User
     query := `SELECT id, email, hash FROM users WHERE email = $1`
     err := conn.QueryRow(ctx, query, email).Scan(&user.Id, &user.Email, &user.Hash)
@@ -51,7 +53,7 @@ func GetUserByEmailWithHash(ctx context.Context, conn *pgx.Conn, email string) (
     return user, err
 }
 
-func GetUserByEmail(ctx context.Context, conn *pgx.Conn, email string) (UserResponse, error) {
+func GetUserByEmail(ctx context.Context, conn *pgxpool.Pool, email string) (UserResponse, error) {
     var user UserResponse
     query := `SELECT id, email FROM users WHERE email = $1`
     err := conn.QueryRow(ctx, query, email).Scan(&user.Id, &user.Email)
@@ -62,7 +64,7 @@ func GetUserByEmail(ctx context.Context, conn *pgx.Conn, email string) (UserResp
 }
 
 
-func GetUserById(ctx context.Context, conn *pgx.Conn, id string) (UserResponse, error) {
+func GetUserById(ctx context.Context, conn *pgxpool.Pool, id string) (UserResponse, error) {
 	var user UserResponse
 	query := `SELECT id, email FROM users WHERE id = $1`
 	err := conn.QueryRow(ctx, query, id).Scan(&user.Id, &user.Email)

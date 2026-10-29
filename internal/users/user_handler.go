@@ -11,12 +11,12 @@ import (
 	"github.com/YamilAli22/content_tracker/internal/auth"
 	"github.com/go-chi/chi/v5"
 
-//	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
+	//	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Handler struct {
-	Conn *pgx.Conn
+	Pool *pgxpool.Pool
 }
 
 func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +33,7 @@ func (h *Handler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Something went wrong in the server during the user creation"))
 		return
 	}
-	response, err := CreateUser(r.Context(), h.Conn, newUser)
+	response, err := CreateUser(r.Context(), h.Pool, newUser)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Something went wrong in the server"))
@@ -51,7 +51,7 @@ func (h *Handler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Please enter a valid input"))
 		return
 	}
-	user_check, err := GetUserByEmailWithHash(r.Context(), h.Conn, user.Email)
+	user_check, err := GetUserByEmailWithHash(r.Context(), h.Pool, user.Email)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("Invalid credentials"))
@@ -73,7 +73,7 @@ func (h *Handler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleGetUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := GetUsers(r.Context(), h.Conn)
+	users, err := GetUsers(r.Context(), h.Pool)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Something went wrong"))
@@ -85,7 +85,7 @@ func (h *Handler) HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleGetUserByEmail(w http.ResponseWriter, r *http.Request) {
 	user_email := r.URL.Query().Get("email")
-	user, err := GetUserByEmail(r.Context(), h.Conn, user_email)
+	user, err := GetUserByEmail(r.Context(), h.Pool, user_email)
 	if err != nil {
  		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Something went wrong"))
@@ -97,7 +97,7 @@ func (h *Handler) HandleGetUserByEmail(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) {	
 	id := chi.URLParam(r, "id")
-	user, err := GetUserById(r.Context(), h.Conn, id)
+	user, err := GetUserById(r.Context(), h.Pool, id)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Something went wrong"))

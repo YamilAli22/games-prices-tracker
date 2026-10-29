@@ -71,7 +71,12 @@ func CallSteamSearchByID(ctx context.Context, steamAppID int) (SteamAppDetails, 
 	if err := json.NewDecoder(resp.Body).Decode(&steamResp); err != nil {
 		return SteamAppDetails{}, err
 	}
-	return steamResp[strconv.Itoa(steamAppID)], nil
+	
+	result := steamResp[strconv.Itoa(steamAppID)]
+	if result.Success && result.Data != nil && result.Data.PriceOverview != nil {
+		result.Data.PriceOverview.Final = result.Data.PriceOverview.Final / 100
+	}
+	return result, nil
 }
 
 func GameDetailsLogic(steamResp SteamAppDetails, steamAppID int, targetPrice float64) (GameResponse, error) {
@@ -81,7 +86,7 @@ func GameDetailsLogic(steamResp SteamAppDetails, steamAppID int, targetPrice flo
 
 	currentPrice := 0.0
 	if steamResp.Data.PriceOverview != nil {
- 		currentPrice = float64(steamResp.Data.PriceOverview.Final) / 100
+ 		currentPrice = float64(steamResp.Data.PriceOverview.Final)
 	}
 	
 	if !steamResp.Data.IsFree && steamResp.Data.PriceOverview != nil && targetPrice == 0.0 {
@@ -97,7 +102,7 @@ func GameDetailsLogic(steamResp SteamAppDetails, steamAppID int, targetPrice flo
 	}, nil
 }
 
-// get the userID using the JWT claims
+// obtener el user id con el jwt (esto quizas sea mejor ponerlo en otro lado)
 func GetTokenClaims(ctx context.Context) (uuid.UUID, error) {
 	claims, ok := ctx.Value("claims").(jwt.MapClaims)
 	if !ok {

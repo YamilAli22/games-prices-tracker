@@ -4,12 +4,12 @@ import (
 	"context"
 	"os"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Connect() (*pgx.Conn, error) {
+func Connect() (*pgxpool.Pool, error) {
 	DATABASE_URL := os.Getenv("DATABASE_URL")
-	conn, err := pgx.Connect(
+	conn, err := pgxpool.New(
 		context.Background(),
 		DATABASE_URL)
 

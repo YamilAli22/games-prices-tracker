@@ -2,9 +2,8 @@
 .env
 
 # Binary
-cmd/api/api
-cmd/worker/worker
-api
+/worker
+/api
 
 # Go
 *.exe
@@ -20,4 +19,4 @@ vendor/
 Thumbs.db
 
 # TXT
-*.txt
+docker_token.txt

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e8edf1; --surface:#f7f9fb; --ink:#13203a; --muted:#5d6b82; --line:#cdd6e0;
+  --accent:#0e8f6e; --accent-ink:#ffffff; --danger:#b3392f; --warn:#f2b632;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1624; --surface:#172035; --ink:#e6ecf5; --muted:#92a0b8; --line:#2a3650;
+    --accent:#2fc79c; --accent-ink:#06261d; --danger:#ff7b6e; --warn:#f2b632;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1624; --surface:#172035; --ink:#e6ecf5; --muted:#92a0b8; --line:#2a3650;
+  --accent:#2fc79c; --accent-ink:#06261d; --danger:#ff7b6e; --warn:#f2b632;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:16px;line-height:1.45;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+main{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:1.6rem;margin:0;font-weight:700;letter-spacing:-.02em}
+h2{font-size:1.1rem;margin:0 0 12px;font-weight:700}
+.sub{color:var(--muted);font-size:.9rem}
+input,button{font:inherit;color:inherit}
+input{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{cursor:pointer;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:500}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.danger{color:var(--danger)}
+button:disabled{opacity:.5;cursor:default}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.row{display:flex;gap:8px;align-items:center}
+.stack{display:grid;gap:10px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 14px;color:var(--muted)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+.badge{background:var(--warn);color:#2b2100;border-radius:99px;font-size:.75rem;padding:1px 8px;margin-left:6px;font-weight:700}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item img{width:92px;height:43px;object-fit:cover;border-radius:6px;background:var(--line)}
+.item .thumb{width:92px;height:43px;border-radius:6px;background:var(--line)}
+.name{font-weight:500;overflow-wrap:anywhere}
+.price{color:var(--muted);font-size:.9rem}
+.price b{color:var(--ink)}
+.drop{color:var(--accent);font-weight:700}
+.actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.actions input{width:92px;padding:8px}
+.unread{border-left:4px solid var(--accent);padding-left:12px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;max-width:90vw;display:none;z-index:5}
+#toast.err{background:var(--danger);color:#fff}
+.empty{color:var(--muted);padding:8px 0}
+details{margin-bottom:16px}
+summary{cursor:pointer;color:var(--muted);font-size:.9rem}
+@media (max-width:560px){
+  .item{grid-template-columns:1fr}
+  .actions{justify-content:flex-start}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>Content Tracker</h1><div class="sub" id="who">Seguí los precios de tus juegos de Steam</div></div>
+    <button id="logout" hidden>Cerrar sesión</button>
+  </header>
+
+  <details>
+    <summary>Conexión con el servidor</summary>
+    <div class="row" style="margin-top:8px"><input id="api" placeholder="http://localhost:8080"></div>
+  </details>
+
+  <!-- AUTH -->
+  <section id="auth" class="panel" hidden>
+    <h2 id="authTitle">Iniciar sesión</h2>
+    <div class="stack">
+      <input id="email" type="email" placeholder="Email" autocomplete="email">
+      <input id="username" placeholder="Nombre de usuario" autocomplete="username" hidden>
+      <input id="password" type="password" placeholder="Contraseña" autocomplete="current-password">
+      <div class="row">
+        <button class="primary" id="authBtn">Entrar</button>
+        <button id="switchMode">Crear cuenta nueva</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <section id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="search" aria-selected="true">Buscar</button>
+      <button role="tab" data-tab="mine" aria-selected="false">Mis juegos</button>
+      <button role="tab" data-tab="notes" aria-selected="false">Avisos<span id="nbadge" class="badge" hidden>0</span></button>
+    </div>
+
+    <div id="tab-search">
+      <form id="searchForm" class="row panel">
+        <input id="term" placeholder="Nombre del juego, ej. Hollow Knight" aria-label="Buscar juego">
+        <button class="primary">Buscar</button>
+      </form>
+      <div id="results" class="panel" hidden></div>
+    </div>
+
+    <div id="tab-mine" hidden><div id="mine" class="panel"></div></div>
+    <div id="tab-notes" hidden><div id="notes" class="panel"></div></div>
+  </section>
+</main>
+<div id="toast" role="status"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const store = {
+  get(k){ try{ return localStorage.getItem(k) }catch(e){ return null } },
+  set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k) }catch(e){} }
+};
+let token = store.get('ct_token');
+let mode = 'login';
+$('#api').value = store.get('ct_api') || 'http://localhost:8080';
+$('#api').addEventListener('change', e => store.set('ct_api', e.target.value.trim()));
+
+function toast(msg, err){
+  const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : '';
+  t.style.display = 'block'; clearTimeout(toast.id); toast.id = setTimeout(()=>t.style.display='none', 3500);
+}
+const money = n => (n==null||isNaN(n)) ? '—' : '$' + Number(n).toFixed(2);
+
+async function api(path, opts = {}){
+  const base = $('#api').value.trim().replace(/\/$/,'');
+  const headers = {'Content-Type':'application/json'};
+  if(token) headers.Authorization = 'Bearer ' + token;
+  let res;
+  try{ res = await fetch(base + path, {...opts, headers}); }
+  catch(e){ throw new Error('No se pudo conectar con ' + base + '. ¿Está corriendo el servidor y tiene CORS habilitado?'); }
+  const text = await res.text();
+  let data = null; try{ data = text ? JSON.parse(text) : null }catch(e){ data = text }
+  if(res.status === 401 && token){ logout(); throw new Error('Tu sesión expiró. Iniciá sesión de nuevo.'); }
+  if(!res.ok) throw new Error((typeof data === 'string' && data) || (data && (data.error||data.message)) || ('Error ' + res.status));
+  return data;
+}
+
+/* ---------- auth ---------- */
+function showAuth(){
+  $('#auth').hidden = false; $('#app').hidden = true; $('#logout').hidden = true;
+  const reg = mode === 'register';
+  $('#authTitle').textContent = reg ? 'Crear cuenta' : 'Iniciar sesión';
+  $('#authBtn').textContent = reg ? 'Crear cuenta' : 'Entrar';
+  $('#switchMode').textContent = reg ? 'Ya tengo cuenta' : 'Crear cuenta nueva';
+  $('#username').hidden = !reg;
+}
+function showApp(){
+  $('#auth').hidden = true; $('#app').hidden = false; $('#logout').hidden = false;
+  loadMine(); loadNotes();
+}
+function logout(){ token = null; store.del('ct_token'); mode = 'login'; showAuth(); }
+$('#logout').onclick = logout;
+$('#switchMode').onclick = () => { mode = mode === 'login' ? 'register' : 'login'; showAuth(); };
+
+$('#authBtn').onclick = async () => {
+  const email = $('#email').value.trim(), password = $('#password').value, username = $('#username').value.trim();
+  if(!email || !password) return toast('Completá email y contraseña.', true);
+  $('#authBtn').disabled = true;
+  try{
+    if(mode === 'register'){
+      await api('/users', {method:'POST', body: JSON.stringify({email, password, name: username, username})});
+      toast('Cuenta creada. Iniciando sesión…');
+    }
+    const r = await api('/users/login', {method:'POST', body: JSON.stringify({email, password})});
+    if(typeof r === 'string') token = r.trim();
+    else if(r && typeof r === 'object'){
+      const k = Object.keys(r).find(k => /token|jwt/i.test(k));
+      token = k ? r[k] : null;
+    }
+    if(!token) throw new Error('El login no devolvió un token. Revisá el nombre del campo en la respuesta: ' + JSON.stringify(r));
+    store.set('ct_token', token);
+    showApp();
+  }catch(e){ toast(e.message, true); }
+  $('#authBtn').disabled = false;
+};
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+  ['search','mine','notes'].forEach(t => $('#tab-'+t).hidden = t !== b.dataset.tab);
+  if(b.dataset.tab === 'mine') loadMine();
+  if(b.dataset.tab === 'notes') loadNotes();
+});
+
+/* ---------- search ---------- */
+$('#searchForm').onsubmit = async e => {
+  e.preventDefault();
+  const term = $('#term').value.trim(); if(!term) return;
+  const box = $('#results'); box.hidden = false; box.innerHTML = '<div class="empty">Buscando…</div>';
+  try{
+    const data = await api('/games/search?term=' + encodeURIComponent(term));
+    const items = (data && data.items) || [];
+    if(!items.length){ box.innerHTML = '<div class="empty">No encontramos juegos con ese nombre. Probá con otro término.</div>'; return; }
+    box.innerHTML = '';
+    items.forEach(it => {
+      const id = it.steam_app_id || it.id;
+      if(!id){ console.warn('Resultado sin ID válido', it); }
+      const cents = it.price && it.price.final;
+      const el = document.createElement('div'); el.className = 'item';
+      el.innerHTML = `<img alt="" src="${it.tiny_image||''}"><div><div class="name"></div><div class="price">${cents!=null?'Precio actual: <b>'+money(cents/100)+'</b>':'Sin precio / gratis'}</div></div>
+        <div class="actions"><input type="number" min="0" step="0.01" placeholder="Precio objetivo" aria-label="Precio objetivo"><button class="primary">Agregar</button></div>`;
+      el.querySelector('.name').textContent = it.name;
+      el.querySelector('button').onclick = async ev => {
+        const v = parseFloat(el.querySelector('input').value);
+        if(isNaN(v) || v < 0) return toast('Ingresá un precio objetivo válido.', true);
+        ev.target.disabled = true;
+        try{ await api('/games', {method:'POST', body: JSON.stringify({steam_app_id:id, target_price:v})}); toast(it.name + ' agregado a tu lista.'); loadMine(); }
+        catch(err){ toast(err.message, true); }
+        ev.target.disabled = false;
+      };
+      box.appendChild(el);
+    });
+  }catch(err){ box.innerHTML = ''; box.hidden = true; toast(err.message, true); }
+};
+
+/* ---------- my games ---------- */
+async function loadMine(){
+  const box = $('#mine');
+  try{
+    const list = await api('/games/user-games');
+    if(!list || !list.length){ box.innerHTML = '<div class="empty">Todavía no agregaste juegos. Buscá uno y fijá tu precio objetivo.</div>'; return; }
+    box.innerHTML = '';
+    list.forEach(g => {
+      const hit = g.target_price != null && g.current_price != null && g.current_price <= g.target_price;
+      const el = document.createElement('div'); el.className = 'item';
+      el.innerHTML = `<div class="thumb"></div><div><div class="name"></div>
+        <div class="price">Ahora: <b>${g.is_free?'Gratis':money(g.current_price)}</b> · Objetivo: <b>${money(g.target_price)}</b> ${hit?'<span class="drop">¡objetivo alcanzado!</span>':''}</div></div>
+        <div class="actions"><input type="number" min="0" step="0.01" value="${g.target_price??''}" aria-label="Nuevo precio objetivo"><button>Guardar</button><button class="danger">Quitar</button></div>`;
+      el.querySelector('.name').textContent = g.name;
+      const [save, del] = el.querySelectorAll('button');
+      save.onclick = async () => {
+        const v = parseFloat(el.querySelector('input').value);
+        if(isNaN(v) || v < 0) return toast('Ingresá un precio objetivo válido.', true);
+        try{ await api('/games/update', {method:'PATCH', body: JSON.stringify({steam_app_id:g.steam_app_id, target_price:v})}); toast('Objetivo actualizado.'); loadMine(); }
+        catch(e){ toast(e.message, true); }
+      };
+      del.onclick = async () => {
+        if(!confirm('¿Quitar ' + g.name + ' de tu lista?')) return;
+        try{ await api('/games/' + (g.id ?? g.steam_app_id), {method:'DELETE'}); toast('Juego quitado.'); loadMine(); }
+        catch(e){ toast(e.message, true); }
+      };
+      box.appendChild(el);
+    });
+  }catch(e){ box.innerHTML = '<div class="empty">No se pudo cargar tu lista: ' + e.message + '<br>Esta pantalla usa el endpoint <code>GET /games/user-games</code>.</div>'; }
+}
+
+/* ---------- notifications ---------- */
+async function loadNotes(){
+  const box = $('#notes');
+  try{
+    const list = await api('/notifications');
+    const unread = (list||[]).filter(n => !n.read).length;
+    $('#nbadge').hidden = !unread; $('#nbadge').textContent = unread;
+    if(!list || !list.length){ box.innerHTML = '<div class="empty">No tenés avisos todavía. Te avisamos cuando un juego llegue a tu precio objetivo.</div>'; return; }
+    box.innerHTML = '';
+    list.forEach(n => {
+      const el = document.createElement('div'); el.className = 'item' + (n.read ? '' : ' unread');
+      el.style.gridTemplateColumns = '1fr auto';
+      el.innerHTML = '<div><div class="name"></div><div class="price"></div></div>';
+      el.querySelector('.name').textContent = n.message;
+      el.querySelector('.price').textContent = n.created_at ? new Date(n.created_at).toLocaleString() : '';
+      box.appendChild(el);
+    });
+  }catch(e){ box.innerHTML = '<div class="empty">No se pudieron cargar los avisos: ' + e.message + '<br>Necesita el endpoint <code>GET /notifications</code> en tu API.</div>'; }
+}
+
+token ? showApp() : showAuth();
+</script>
+</body>
+</html>
