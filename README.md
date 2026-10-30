@@ -1,107 +1,128 @@
-# Content Tracker
+# Game Price Tracker
 
-Rastreador de precios de juegos de Steam. Buscás un juego, lo agregás a tu lista personal, fijás un **precio objetivo** y la app te avisa cuando el juego llega a ese precio.
+A Steam game price tracker. Search for a game, add it to your personal list, set a **target price**, and get notified when the game reaches it.
 
-## Qué hace
+[Leer en español](README.es.md)
 
-- Registro e inicio de sesión con JWT.
-- Búsqueda de juegos usando la tienda de Steam.
-- Lista personal con precio objetivo editable por juego.
-- Un **worker en segundo plano** que revisa los precios en Steam cada cierto tiempo y genera avisos cuando un precio baja hasta el objetivo.
-- Panel de avisos con contador de no leídos.
+## Features
+
+- Sign up and log in with JWT authentication.
+- Game search powered by the Steam store.
+- Personal list with an editable target price per game.
+- A **background worker** that periodically checks prices on Steam and creates a notification when a price drops to the target.
+- Notifications panel with an unread counter.
 
 ## Stack
 
-| Capa | Tecnología |
+| Layer | Technology |
 |---|---|
 | Backend | Go, [chi](https://github.com/go-chi/chi) |
-| Base de datos | PostgreSQL 16 (pgx / pgxpool) |
+| Database | PostgreSQL 16 (pgx / pgxpool) |
 | Auth | JWT |
-| Front | HTML + JavaScript sin framework (`web/index.html`) |
-| Infra local | Docker Compose |
+| Frontend | Plain HTML + JavaScript (`web/index.html`), served by the Go server |
+| Local infra | Docker Compose |
+| Deployment | Dockerfile (e.g. Railway) |
 
-## Cómo funciona
+## How it works
 
 ```
-Navegador ──► API (chi + JWT) ──► PostgreSQL
-                  ▲
-Worker (goroutine) ─┤──► Steam Store API
+Browser ──► API (chi + JWT) ──► PostgreSQL
+                 ▲
+Worker (goroutine) ──► Steam Store API
 ```
 
-Cada fila de `games` es la relación *usuario ↔ juego* con su precio objetivo. El worker:
+Each row in `games` is a *user ↔ game* relation with that user's target price. On every cycle the worker:
 
-1. Toma los `steam_app_id` **únicos** de la tabla, para consultar a Steam una sola vez por juego aunque lo sigan muchos usuarios.
-2. Compara el precio actual contra el guardado. Si **no cambió**, no hace nada, así no se repiten avisos en cada ciclo.
-3. Si cambió y el nuevo precio es menor o igual al objetivo de un usuario, crea una notificación para ese usuario.
-4. Guarda el precio nuevo.
+1. Takes the **unique** `steam_app_id` values, so Steam is queried once per game no matter how many users track it.
+2. Compares the current Steam price with the stored one. If it **hasn't changed**, it does nothing, which prevents repeated notifications on every cycle.
+3. If it changed and the new price is lower than or equal to a user's target, it creates a notification for that user.
+4. Stores the new price.
 
-## Correrlo en local
+## Running locally
 
-Requisitos: Go, Docker.
+Requirements: Go and Docker.
 
 ```bash
-# 1. Variables de entorno
-cp .env.example .env        # y completá los valores
+# 1. Environment variables
+cp .env.example .env        # then fill in the values
 
-# 2. Base de datos
+# 2. Database
 docker compose up -d db
 for f in db/migrations/*.sql; do
   docker compose exec -T db psql -U postgres -d content_tracker < "$f"
 done
 
-# 3. API
+# 3. API + frontend
 go run ./cmd/api
-
-# 4. Front (en otra terminal, sirviendo solo la carpeta web, solo en tu máquina)
-cd web && python3 -m http.server 5500 --bind 127.0.0.1
 ```
 
-Abrí `http://localhost:5500`.
+Open `http://localhost:8080`. The Go server serves both the API and the `web/` folder.
 
-### Variables de entorno
+With `ENV=dev` you can also serve the frontend separately (`cd web && python3 -m http.server 5500 --bind 127.0.0.1`) and open `http://localhost:5500`; CORS is enabled for that origin in dev only.
 
-| Variable | Descripción |
+To run in production mode locally:
+
+```bash
+ENV=production go run ./cmd/api
+```
+
+### Environment variables
+
+| Variable | Description |
 |---|---|
-| `PORT` | Puerto de la API (ej. `8080`) |
-| `DATABASE_URL` | Cadena de conexión a Postgres |
-| `JWT_SECRET_KEY` | Secreto para firmar tokens. Generalo con `openssl rand -base64 32` |
-| `JWT_EXPIRATION_HOURS` | Duración del token en horas |
-| `ENV` | `dev` habilita CORS para `localhost:5500` y el endpoint de debug |
+| `PORT` | API port (e.g. `8080`). On most platforms it is injected for you |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET_KEY` | Secret used to sign tokens. Generate one with `openssl rand -base64 32` |
+| `JWT_EXPIRATION_HOURS` | Token lifetime in hours |
+| `ENV` | `dev` enables a 10-second worker interval, CORS for `localhost:5500` and the debug endpoint. Anything else runs in production mode (1-hour interval) |
+
+The app refuses to start if `DATABASE_URL` or `JWT_SECRET_KEY` is missing. A `.env` file is optional: if it doesn't exist, plain environment variables are used.
 
 ## API
 
-Los endpoints marcados con 🔒 requieren `Authorization: Bearer <token>`.
+Endpoints marked with 🔒 require `Authorization: Bearer <token>`.
 
-| Método | Ruta | Descripción |
+| Method | Route | Description |
 |---|---|---|
-| `POST` | `/users` | Crear cuenta |
-| `POST` | `/users/login` | Iniciar sesión, devuelve el token |
-| `GET` | `/games/search?term=` 🔒 | Buscar juegos en Steam |
-| `POST` | `/games` 🔒 | Agregar un juego. Body: `{"steam_app_id": 367520, "target_price": 2.5}` |
-| `GET` | `/games/user-games` 🔒 | Listar mis juegos |
-| `PATCH` | `/games/update` 🔒 | Cambiar el objetivo. Body: `{"steam_app_id": 367520, "target_price": 3}` |
-| `DELETE` | `/games/{steamAppID}` 🔒 | Quitar un juego de mi lista |
-| `GET` | `/notifications` 🔒 | Mis avisos, del más nuevo al más viejo |
-| `PATCH` | `/notificationS/read` 🔒 | Marcar mis avisos como leídos |
+| `POST` | `/users` | Create an account |
+| `POST` | `/users/login` | Log in, returns the token |
+| `GET` | `/games/search?term=` 🔒 | Search games on Steam |
+| `POST` | `/games` 🔒 | Add a game. Body: `{"steam_app_id": 367520, "target_price": 2.5}` |
+| `GET` | `/games/user-games` 🔒 | List my games |
+| `PATCH` | `/games/update` 🔒 | Change the target. Body: `{"steam_app_id": 367520, "target_price": 3}` |
+| `DELETE` | `/games/{steamAppID}` 🔒 | Remove a game from my list |
+| `GET` | `/notifications` 🔒 | My notifications, newest first |
+| `PATCH` | `/notifications/read` 🔒 | Mark my notifications as read |
 
-Con `ENV=dev` existe además `POST /debug/check-prices`, que dispara un chequeo de precios manual.
+Notable responses: adding a game that is already on the list returns `409 Conflict`, and adding one whose current price is already at or below the target returns `422 Unprocessable Entity`.
 
-## Decisiones de diseño
+With `ENV=dev` there is also `POST /debug/check-prices`, which triggers a price check manually.
 
-- **Un solo pool de conexiones** (`pgxpool`) compartido por handlers y worker, en lugar de una conexión única.
-- **Precios convertidos en un solo lugar:** Steam devuelve centavos y se pasan a unidades al leer la respuesta, para que el resto del código trabaje siempre en la misma unidad.
-- **Autorización por fila:** las consultas de modificación y borrado filtran también por `user_id`, así un usuario no puede tocar juegos ajenos.
-- **Un juego por usuario:** `UNIQUE (user_id, steam_app_id)` evita duplicados, y la API responde `409` si se intenta repetir.
-- **Worker en el mismo proceso:** una goroutine con `time.Ticker`. Alcanza para esta escala; si crece, se puede mover a un proceso separado.
+## Deployment
 
-## Pendiente / ideas
+The repository includes a `Dockerfile`, so it can be deployed on any platform that builds from one (Railway, Render, ...):
 
-- Historial de precios (`price_history`) y gráfico por juego.
-- Notificaciones por email.
-- Avisar al agregar un juego que ya está por debajo del objetivo.
-- Aviso sin objetivo ("avisame de cualquier baja").
-- Catálogo normalizado de juegos (separar datos del juego de la relación con el usuario).
-- Recomendaciones personalizadas.
+1. Create a PostgreSQL database and run the migrations in `db/migrations/` against it.
+2. Set `DATABASE_URL`, a **new** `JWT_SECRET_KEY`, `JWT_EXPIRATION_HOURS` and `ENV=production` in the platform's environment settings. Don't define `PORT` if the platform injects it.
+3. Make sure the service stays always on: the price worker runs inside the same process as the API, so if the service sleeps, price checks stop.
 
-## Aviso sobre IA
-- No se utilizaron agentes de IA para realizar este proyecto. SI se utilizo el LLM de Claude para debug, explicar conceptos, sugerir correcciones/mejorar y generar el frontend.
+## Design decisions
+
+- **A single connection pool** (`pgxpool`) shared by handlers and the worker, instead of one shared connection.
+- **Prices converted in one place:** Steam returns prices in cents, so they are converted to currency units when the response is read and the rest of the code always uses the same unit.
+- **Per-row authorization:** update and delete queries also filter by `user_id`, so a user can't touch someone else's games.
+- **One game per user:** `UNIQUE (user_id, steam_app_id)` prevents duplicates, and the API reports a clear conflict.
+- **Worker in the same process:** a goroutine driven by `time.Ticker`. That's enough at this scale; it can be moved to a separate process if it grows.
+
+## Roadmap/New features I want to add
+
+- Price history (`price_history`) and a per-game chart.
+- Email notifications.
+- Notify on add when the game is already below the target.
+- "Any price drop" alerts with no target.
+- Normalized game catalog (separate game data from the user relation).
+- Personalized recommendations.
+
+## AI disclosure
+
+No AI agents were used to build this project. Claude (an LLM) was used for debugging, explaining concepts, suggesting fixes and improvements, and generating the frontend.

@@ -73,9 +73,11 @@ func newServer(db *pgxpool.Pool, w *worker.Worker) *Server {
 		r.Get("/notifications", notiHandler.HandleGetNotification)
 		r.Patch("/notifications/read", notiHandler.HandleMarkRead)
 	})
+	
+	server.Router.Handle("/*", http.FileServer(http.Dir("web")))
 
-	debugHandler := &debug.Handler{Worker: w}
 	if IS_DEV {
+		debugHandler := &debug.Handler{Worker: w}
 		server.Router.Group(func(r chi.Router) {
 		r.Post("/debug/check-prices", debugHandler.HandleCheckPrices)
 		})

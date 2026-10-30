@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 	"time"
 
 	"github.com/YamilAli22/content_tracker/internal/games"
@@ -25,7 +26,12 @@ func NewWorker(db *pgxpool.Pool) *Worker {
 }
 
 func (w *Worker) StartWorker(ctx context.Context) {
-	ticker := time.NewTicker(time.Hour) // change later
+	interval := time.Hour
+	if os.Getenv("ENV") == "dev" {
+		interval = 10 * time.Second
+	}
+	
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	
 	log.Println("Worker started!!")
@@ -75,8 +81,7 @@ func (w *Worker) CheckAllPrices(ctx context.Context) (error) {
 		log.Printf("Steam respondio para %d: precio=%f", id, steam_resp.Data.PriceOverview.Final)
 		steam_games_data = append(steam_games_data, *steam_resp.Data)
 	}
-	log.Println("HOLA ????????")
-	// var user_games_data []games.GameResponse
+	
 	query2 := "SELECT id, user_id, steam_app_id, name, COALESCE(current_price, 0), COALESCE(target_price, 0), is_free, created_at FROM games"
 	g_rows, err := w.Pool.Query(ctx, query2)
 	if err != nil {
@@ -89,7 +94,6 @@ func (w *Worker) CheckAllPrices(ctx context.Context) (error) {
 		return err
 	}
 	
-	log.Printf("STEAM GAMES: %v \n\n USER GAMES: %v", steam_games_data, user_games_data)
 	for _, steam_game := range steam_games_data {
 		if steam_game.PriceOverview == nil {
 			continue
@@ -103,9 +107,7 @@ func (w *Worker) CheckAllPrices(ctx context.Context) (error) {
 			if math.Abs(price - user_game.CurrentPrice) < 0.005 {
 				continue // el precio no bajo, nada que avisar
 			}
-			log.Println("Entrando al chequeo de precio...")
 			if price <= user_game.TargetPrice {
-				log.Println("El precio bajó del target...")
 				msg := fmt.Sprintf("%s bajó a %.2f (tu objetivo: %.2f)", user_game.Name, price, user_game.TargetPrice)
 				if err := w.createNotification(ctx, user_game.UserID, user_game.ID, msg); err != nil {
 					log.Printf("Error creando notificación para user %s: %v", user_game.UserID, err)

@@ -122,12 +122,11 @@ const store = {
 };
 let token = store.get('ct_token');
 let mode = 'login';
-// Para producción: definí window.API_BASE = '' (mismo origen) o la URL de tu API antes de este script.
-const API_BASE = (window.API_BASE ?? 'http://localhost:8080').replace(/\/$/,'');
+const API_BASE = window.API_BASE ?? (location.port === '5500' ? 'http://localhost:8080' : '');
 
 function toast(msg, err){
   const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : '';
-  t.style.display = 'block'; clearTimeout(toast.id); toast.id = setTimeout(()=>t.style.display='none', 3500);
+  t.style.display = 'block'; clearTimeout(toast.id); toast.id = setTimeout(()=>t.style.display='none', 5000);
 }
 const money = n => (n==null||isNaN(n)) ? '—' : '$' + Number(n).toFixed(2);
 

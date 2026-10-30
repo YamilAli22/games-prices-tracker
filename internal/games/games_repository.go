@@ -23,7 +23,7 @@ func StoreGameInDB(ctx context.Context, conn *pgxpool.Pool, input Game) (GameRes
 	
 	err := conn.QueryRow(ctx, query, input.UserID, input.SteamAppID, input.Name, input.CurrentPrice, input.TargetPrice, input.IsFree).Scan(&SteamAppId, &Name, &CurrentPrice, &TargetPrice, &IsFree)
 	if err != nil {
-		return GameResponse{}, fmt.Errorf("error during db query: %v", err)
+		return GameResponse{}, fmt.Errorf("error during db query: %w", err)
 	}
 	response := GameResponse{
 		SteamAppID: SteamAppId,

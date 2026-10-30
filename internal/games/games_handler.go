@@ -3,6 +3,7 @@ package games
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -72,15 +73,14 @@ func (h *GameHandler) HandleAddGame(w http.ResponseWriter, r *http.Request) {
     	w.Write([]byte("Something went wrong"))
    	 	return
 	}
-
-	if gameDetails.CurrentPrice <= gameDetails.TargetPrice {
-		w.WriteHeader(http.StatusAccepted)
-		w.Write([]byte("El juego ya está por debajo de tu precio elegido!"))
-		return 
+	if !gameDetails.IsFree && gameDetails.CurrentPrice <= gameDetails.TargetPrice {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprintf(w, "El precio actual ($%.2f) ya es menor o igual a tu objetivo ($%.2f). Elegí un objetivo más bajo.",
+		gameDetails.CurrentPrice, gameDetails.TargetPrice)
+		return
 	}
 		
 	// store in DB
-	// TODO: MODULARIZAR ESTO (QUIZAS?)
 	inputGame := Game{
 		UserID: userID,
 		SteamAppID: gameReq.SteamAppID,
